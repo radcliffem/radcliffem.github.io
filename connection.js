@@ -1,16 +1,11 @@
 var peer;
 var num="";
 var BtoM;
+var MtoB;
 var gameId="";
+var who="";
 
 
-document.getElementById("nameGame").onclick = function(){
-	gameId=document.getElementById("gameid").value;
-	turnOff(document.getElementsByName("setup"));
-	turnOn(document.getElementsByName("initial"));
-}
-
-console.log(gameId);
 
 
 
@@ -22,36 +17,74 @@ console.log(gameId);
 //Maker doesn't do anything without a signal from Breaker.
 
 document.getElementById("makerId").onclick = function (){
-	turnOff(document.getElementsByName("initial"));
-	turnOn(document.getElementsByName("isMaker"));
-	playerNames['blue'] = prompt("Please enter the name of the Blue player", "");
-	playerNames['red'] = prompt("Please enter the name of the Red player","");
+	gameId=document.getElementById("gameid").value;
+	who="maker";
+	peer = new Peer("IAmMaker"+gameId);	
+	playerNames = getNames();
 	
-	peer = new Peer("IAmMaker"+gameId);
+	document.getElementById("audio").play()
+	turnOff(document.getElementsByName("initial"));
+	document.getElementById("warning").innerText="waiting for Breaker..."
+	turnOn(document.getElementsByName("isMaker"));
+	
+	
+	
 	peer.on('connection', function(conn) {
-		
-		conn.send(playerNames);
-		
+				
 		conn.on('data',function(data){
-			//There are 4 signals Breaker can send to Maker. The first is to set up
-			//the board (initialize). The second is to switch turns from one player
-			//to another (turn). The third is to indicate a team has won (wins). The 
-			//last is to process information from a click. The data in that case gives
-			//Maker the information about which word has been clicked, so that Maker
-			//can update their board.
-			// 
-			// MtoB = peer.connect("IAmBreaker");
-			// MtoB.on('open',function(){
-			// 	MtoB.send([bluePlayer, redPlayer]);
-			// })
+			//There are 5 signals Breaker can send to Maker:
+			//"hello": asking for player names
+			//"initialize": set up the board
+			//"turn": switch turns
+			//"wins": run end game			
+			//anything else: process a click
+			
 			if(data[0]=="hello"){
 				conn.send(playerNames);
 			}else if(data[0]=="initialize"){
+				turnOff(document.getElementsByName("warning"));
 				makeMaker(data[1],data[2]);
 			}else if(data[0]=="turn"){
 				makeTurn();
+			}else if(data[0]=="goodbye"){
+				document.write("Goodbye!");
 			}else if(data[0]=="wins"){
 				wins(data[1]);
+				turnOff(document.getElementsByName("playing"));
+				turnOn(document.getElementsByName("ending"));
+				turnOn(document.getElementsByName("PlayAgain"));
+				
+				document.getElementById("PlayNo").onclick=function(){
+					document.write("Goodbye!");
+				}
+				
+				document.getElementById("PlayYes").onclick=function(){
+					turnOff(document.getElementsByName("isMaker"));
+					var makerBoard=document.getElementById("MakerBoard");
+					while(makerBoard.firstChild){
+						makerBoard.removeChild(makerBoard.firstChild);
+					}
+					turnOff(document.getElementsByName("PlayAgain"));
+					turnOn(document.getElementsByName("SameMaker"));
+					document.getElementById("endGameText").innerText = "Are the codemakers the same?";
+					document.getElementById("SameYes").onclick=function(){
+						turnOff(document.getElementsByName("SameMaker"));
+						turnOff(document.getElementsByName("ending"));
+						turnOn(document.getElementsByName("isMaker"));
+						document.getElementById("endGameText").innerText="Would you like to play again?";
+						reset();
+						conn.send(playerNames);
+					}
+					document.getElementById("SameNo").onclick=function(){
+						playerNames=getNames();
+						turnOff(document.getElementsByName("SameMaker"));
+						turnOff(document.getElementsByName("ending"));
+						turnOn(document.getElementsByName("isMaker"));
+						document.getElementById("endGameText").innerText="Would you like to play again?";
+						reset();
+						conn.send(playerNames);
+					}
+				}
 			}else{
 				BreakerClick(data);
 			}
@@ -66,9 +99,25 @@ document.getElementById("makerId").onclick = function (){
 //send data to Maker.
 
 document.getElementById("breakerId").onclick=function (){
+	gameId=document.getElementById("gameid").value;
+	who="breaker";
 	turnOff(document.getElementsByName("initial"));
-	
+	turnOff(document.getElementsByName("warning"));
 	turnOn(document.getElementsByName("pickCategories"));
+	
+	peer = new Peer("IAmBreaker"+gameId);
+	
+	BtoM=peer.connect("IAmMaker"+gameId);
+	
+	BtoM.on('open',function(){
+		
+		BtoM.on('data',function(data){
+			playerNames=data;
+			makeBreaker();
+			setColors();
+		});
+	});
+	
 	
 	addCategories();
 	
@@ -82,31 +131,12 @@ document.getElementById("breakerId").onclick=function (){
 		}
 		
 		turnOff(document.getElementsByName("pickCategories"));
-		
-		turnOn(document.getElementsByName("isBreaker"));
-	
-		makeConnection(wordData);
+				
+		BtoM.send(["hello"]);
 		
 	}
 	
-	function makeConnection(wordData){
-		peer = new Peer("IAmBreaker"+gameId);
-		BtoM=peer.connect("IAmMaker"+gameId);
-		BtoM.on('open',function(){
 
-			BtoM.send(["hello"]);
-
-			BtoM.on('data',function(data){
-				console.log(data);
-				playerNames=data;
-				console.log(playerNames);
-				makeBreaker();
-				setColors();
-			})
-		});
-	}
-	
-	
 	
 }
 
