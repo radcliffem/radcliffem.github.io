@@ -59,6 +59,7 @@ document.getElementById("makerId").onclick = function (){
 				}
 				
 				document.getElementById("PlayYes").onclick=function(){
+					conn.send("new");
 					turnOff(document.getElementsByName("isMaker"));
 					var makerBoard=document.getElementById("MakerBoard");
 					while(makerBoard.firstChild){
@@ -112,9 +113,13 @@ document.getElementById("breakerId").onclick=function (){
 	BtoM.on('open',function(){
 		
 		BtoM.on('data',function(data){
-			playerNames=data;
-			makeBreaker();
-			setColors();
+			if(data=="new"){
+				NewGame();
+			}else{
+				playerNames=data;
+				makeBreaker();
+				setColors();
+			}
 		});
 	});
 	
@@ -140,22 +145,6 @@ document.getElementById("breakerId").onclick=function (){
 	
 }
 
-
-//These functions are used to control which HTML elements are hidden or not 
-//throughout gameplay.
-
-
-function turnOn(elements){
-	for(var i=0;i<elements.length;i++){
-		elements[i].style.display="block";
-	}
-}
-
-function turnOff(elements){
-	for(var i=0;i<elements.length;i++){
-		elements[i].style.display="none";
-	}
-}
 
 
 
